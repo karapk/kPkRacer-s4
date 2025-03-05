@@ -137,10 +137,11 @@ output application/json
         </ee:transform>
     </flow>
     <flow name="get:\voice\name:racer-api-config">
-        <logger level="INFO" message="get:\voice\name:racer-api-config" />
+        <set-payload value='#[readUrl("classpath://Karanja.mp3", "application/octet-stream") dw::Runtime::wait 50]' doc:name="Set Payload" doc:id="a6578e22-52fd-497c-b3c3-78acdf8da3ed" />
+		<logger level="INFO" message="get:\voice\name:racer-api-config" />
     </flow>
     <flow name="post:\bias-detection\articles:application\json:racer-api-config">
-        <ee:transform doc:name="Transform Message">
+		<ee:transform doc:name="Transform Message">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
