@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:whisperer="http://www.mulesoft.org/schema/mule/whisperer"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/whisperer http://www.mulesoft.org/schema/mule/whisperer/current/mule-whisperer.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="testSub_Flow" doc:id="25075dfa-b94b-435f-bb04-0e44e0ed4447" >
+		<ee:transform doc:name="Transform Message" doc:id="f7bf3e3c-18bb-43c0-9273-108514c3f12a" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="f1Results" ><![CDATA[output application/java
+
+var rawResults = readUrl("classpath://data/f1-results-kaggle.csv", "application/csv")
+---
+rawResults map (row) -> {
+	season: row.Season,
+	round: row.Round,
+	position: row.Position,
+	driver: {
+		first: row.GivenName,
+		last: row.FamilyName,
+		nationality: row.Nationality
+	},
+	constructor: {
+		name: row.ConstructorName,
+		nationality: row.ConstructorNationality
+	},
+	status: row.Status
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<set-variable value='#[output application/java&#10;var possibleFacts = [&#10;	"driver",&#10;	"constructor", &#10;	// constructor nationality question seems confusing, removing&#10;	//"constructorNationality",&#10;	"position",&#10;]&#10;---&#10;{&#10;	fact: possibleFacts[randomInt(sizeOf(possibleFacts))],&#10;	formulaOneRecord: vars.f1Results[randomInt(sizeOf(vars.f1Results))]&#10;}]' doc:name="Set Variable" doc:id="8b7af81f-12f2-495e-a2e8-97303a5e5fcb" variableName="selectedChallenge"/>
+		<logger level="INFO" doc:name="Logger" doc:id="7b4050c4-045d-4910-8944-c1c88898c9f3" category="scorekeeper-sapi.check-simple-question.generate"/>
+		<ee:transform doc:name="Transform Message" doc:id="8917156c-5007-4a41-8247-d35acbdcc261" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var position = vars.selectedChallenge.formulaOneRecord.position
+var round = vars.selectedChallenge.formulaOneRecord.round
+var season = vars.selectedChallenge.formulaOneRecord.season
+var constructor = vars.selectedChallenge.formulaOneRecord.constructor.name
+
+var question = vars.selectedChallenge.fact match {
+	case "driver" -> 
+		"Who finished in position $(position) in round $(round) of $(season)?"
+	case "constructor" -> 
+		"Who constructed the car that finished in position $(position) in round $(round) of $(season)?"
+	case "constructorNationality" -> 
+		"What is the constructor nationality of the car that finished in position $(position) in round $(round) of $(season)?"
+	case "position" ->
+		"What position did $(position) finish in round $(round) in $(season)?"
+}
+var answer = vars.selectedChallenge.fact match {
+	case "driver" -> 
+		vars.selectedChallenge.formulaOneRecord.driver.first ++ " " ++ vars.selectedChallenge.formulaOneRecord.driver.last
+	case "constructor" -> 
+		constructor
+	case "constructorNationality" -> 
+		vars.selectedChallenge.formulaOneRecord.constructor.nationality
+	case "position" ->
+		position
+}
+---
+{
+	question: question,
+	answer: answer
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</sub-flow>
+
+</mule>
