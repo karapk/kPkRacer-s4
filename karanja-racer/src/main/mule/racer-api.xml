@@ -131,7 +131,9 @@ output application/json
     </flow>
     <flow name="get:\health:racer-api-config">
         <!-- [STUDIO:"Set Payload1"]<set-payload value="#[payload&#93;" doc:name="Set Payload1" doc:id="e724824d-6240-430c-9228-4c83d420e6af" /> [STUDIO] -->
+		<flow-ref doc:name="getQuestion" doc:id="c00dab03-d07a-42c0-acb4-ecd8128870fb" name="getQuestion"/>
 		<whisperer:text-to-speech doc:name="spokenAnswer" doc:id="96ba781e-3b8b-4904-a004-0f1f05436fbc" config-ref="MAC_Whisperer_Config">
+			<whisperer:text ><![CDATA[#[payload.question]]]></whisperer:text>
 			<whisperer:generation-options voice="coral"/>
 		</whisperer:text-to-speech>
 		<whisperer:speech-to-text doc:name="Speech to Text" doc:id="33c1cb52-03b6-4b2f-9891-b087a5f1818d" config-ref="MAC_Whisperer_Config" target="question" finetuningPrompt="Transcribe numbers as digits. Example: 'one' → '1', 'twenty-five' → '25" temperature="0.1"/>
@@ -167,13 +169,35 @@ fun findDriver(question, f1Results) = do {
 	else "$(chosenRow.GivenName) $(chosenRow.FamilyName)"
 }
 
+fun findConstructor(question, f1results) = do {
+	var normalizedQuestion = trim(lower(question remove "?"))
+	var forLog = log("finding constructor", question)
+	var words = trim(lower(normalizedQuestion)) splitBy " "
+	
+	var position = log("position", words[8] as Number)
+	var round = log("round", words[11] as Number)
+	var season = log("season", words[13] as Number)
+	
+	var chosenRow = vars.f1Results firstWith (row) -> 
+		(row.Position as Number) == position and
+		(row.Round as Number) == round and
+		(row.Season as Number) == season
+
+	---
+	if (null == chosenRow) "I give up!!"
+	else "$(chosenRow.ConstructorName)"
+
+}
+
 var questionType = vars.question match {
 	case q if lower(q) startsWith "who finished" -> "driver"
+	case q if lower(q) startsWith "who constructed" -> "constructor"
 	else -> "unknown"
 }
 ---
 questionType match {
 	case "driver" -> findDriver(vars.question, vars.f1Results)
+	case "constructor" -> findConstructor(vars.question, vars.f1Results)
 	else -> "I don't know"
 }
 ]]></ee:set-variable>

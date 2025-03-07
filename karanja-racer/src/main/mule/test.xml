@@ -9,14 +9,14 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/whisperer http://www.mulesoft.org/schema/mule/whisperer/current/mule-whisperer.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
-	<sub-flow name="testSub_Flow" doc:id="25075dfa-b94b-435f-bb04-0e44e0ed4447" >
+	<sub-flow name="getQuestion" doc:id="25075dfa-b94b-435f-bb04-0e44e0ed4447" >
 		<ee:transform doc:name="Transform Message" doc:id="f7bf3e3c-18bb-43c0-9273-108514c3f12a" >
 			<ee:message >
 			</ee:message>
 			<ee:variables >
 				<ee:set-variable variableName="f1Results" ><![CDATA[output application/java
 
-var rawResults = readUrl("classpath://data/f1-results-kaggle.csv", "application/csv")
+var rawResults = readUrl("classpath://results.csv", "application/csv")
 ---
 rawResults map (row) -> {
 	season: row.Season,
