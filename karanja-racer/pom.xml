@@ -57,9 +57,21 @@
 			<type>zip</type>
 		</dependency>
 		<dependency>
+			<groupId>cloud.anypoint</groupId>
+			<artifactId>mule-whisperer-connector</artifactId>
+			<version>0.3.0</version>
+			<classifier>mule-plugin</classifier>
+		</dependency>
+		<dependency>
 			<groupId>org.mule.modules</groupId>
 			<artifactId>mule-apikit-module</artifactId>
-			<version>1.11.3</version>
+			<version>1.11.5</version>
+			<classifier>mule-plugin</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.mule.connectors</groupId>
+			<artifactId>mule-file-connector</artifactId>
+			<version>1.5.2</version>
 			<classifier>mule-plugin</classifier>
 		</dependency>
 	</dependencies>

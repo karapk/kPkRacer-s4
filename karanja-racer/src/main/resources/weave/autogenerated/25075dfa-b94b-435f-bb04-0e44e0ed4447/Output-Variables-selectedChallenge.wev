@@ -1,0 +1,7 @@
+%dw 2.0
+
+type auto_25075dfa_b94b_435f_bb04_0e44e0ed4447_Output_Variables_selectedChallenge = {|
+  fact: "driver" | "constructor" | "position", 
+  formulaOneRecord: Any
+|}
+
