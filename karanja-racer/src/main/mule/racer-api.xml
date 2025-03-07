@@ -130,20 +130,23 @@ output application/json
         </error-handler>
     </flow>
     <flow name="get:\health:racer-api-config">
-        <!-- [STUDIO:"Set Payload1"]<set-payload value="#[payload&#93;" doc:name="Set Payload1" doc:id="e724824d-6240-430c-9228-4c83d420e6af" /> [STUDIO] -->
-		<flow-ref doc:name="getQuestion" doc:id="c00dab03-d07a-42c0-acb4-ecd8128870fb" name="getQuestion"/>
-		<whisperer:text-to-speech doc:name="spokenAnswer" doc:id="96ba781e-3b8b-4904-a004-0f1f05436fbc" config-ref="MAC_Whisperer_Config">
-			<whisperer:text ><![CDATA[#[payload.question]]]></whisperer:text>
-			<whisperer:generation-options voice="coral"/>
-		</whisperer:text-to-speech>
-		<whisperer:speech-to-text doc:name="Speech to Text" doc:id="33c1cb52-03b6-4b2f-9891-b087a5f1818d" config-ref="MAC_Whisperer_Config" target="question" finetuningPrompt="Transcribe numbers as digits. Example: 'one' → '1', 'twenty-five' → '25" temperature="0.1"/>
-		<!-- [STUDIO:"Set Variable"]<set-variable value="#[payload&#93;" doc:name="Set Variable" doc:id="36756998-2898-47eb-a34d-e37356fae465" variableName="questions"/> [STUDIO] -->
-		<set-variable value='#[readUrl("classpath://results.csv", "application/csv")]' doc:name="Set Variable" doc:id="2619e899-2b26-4721-8f3c-1809bdddd844" variableName="f1Results"/>
-		<ee:transform doc:name="Transform Message" doc:id="71fe09fa-c261-45e7-8cc4-415a7cf33c10">
+		<set-payload value='#["OK"]' doc:name="Set Payload" doc:id="dd5f510e-bce0-4db5-b909-0e5f65d61bb6" />
+    </flow>
+    <flow name="post:\voice\question\formula-one:audio\mp3:racer-api-config">
+		<!-- [STUDIO:"getQuestion"]<flow-ref doc:name="getQuestion" doc:id="c00dab03-d07a-42c0-acb4-ecd8128870fb" name="getQuestion" /> [STUDIO] -->
+		<!-- [STUDIO:"spokenAnswer"]<whisperer:text-to-speech doc:name="spokenAnswer" doc:id="96ba781e-3b8b-4904-a004-0f1f05436fbc" config-ref="MAC_Whisperer_Config">
+			<whisperer:text><![CDATA[#[payload.question&#93;&#93;&#93;></whisperer:text>
+			<whisperer:generation-options voice="coral" />
+		</whisperer:text-to-speech> [STUDIO] -->
+		<logger level="INFO" doc:name="Logger" doc:id="a97b36d5-77e9-4bce-90c6-fe09815e0a6a" message="starting f1 question"/>
+		<whisperer:speech-to-text doc:name="f1 Question to text" doc:id="33c1cb52-03b6-4b2f-9891-b087a5f1818d" config-ref="MAC_Whisperer_Config" target="question" finetuningPrompt="Transcribe numbers as digits. Example: 'one' → '1', 'twenty-five' → '25" temperature="0.1" />
+		<logger level="DEBUG" doc:name="Logger" doc:id="e76ce4a4-a5b4-48a7-836e-27f43f42f756" message="The speech transcription is #[vars.question]"/>
+		<set-variable value='#[readUrl("classpath://results.csv", "application/csv")]' doc:name="f1results file" doc:id="2619e899-2b26-4721-8f3c-1809bdddd844" variableName="f1Results" />
+		<ee:transform doc:name="Answer Question" doc:id="71fe09fa-c261-45e7-8cc4-415a7cf33c10">
 			<ee:message>
 			</ee:message>
-			<ee:variables >
-				<ee:set-variable variableName="answer" ><![CDATA[%dw 2.0
+			<ee:variables>
+				<ee:set-variable variableName="answer"><![CDATA[%dw 2.0
 import * from dw::core::Arrays
 import remove from dw::core::Strings
 output application/java
@@ -188,6 +191,12 @@ fun findConstructor(question, f1results) = do {
 	else "$(chosenRow.ConstructorName)"
 
 }
+//WIP 
+//fun findPosition(question, f1Results) = do {
+//	var normalizedQuestion = trim(lower(question remove "?"))
+//	var forLog = log("finding position", question)
+//	var words = trim(lower(normalizedQuestion)) splitBy " "
+//}
 
 var questionType = vars.question match {
 	case q if lower(q) startsWith "who finished" -> "driver"
@@ -198,30 +207,22 @@ var questionType = vars.question match {
 questionType match {
 	case "driver" -> findDriver(vars.question, vars.f1Results)
 	case "constructor" -> findConstructor(vars.question, vars.f1Results)
-	else -> "I don't know"
+	else -> "I need more practice"
 }
 ]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
-		<whisperer:text-to-speech doc:name="spokenAnswer1" doc:id="1114bb60-6309-408d-b82e-fb9cdcd622c2" config-ref="MAC_Whisperer_Config">
-			<whisperer:text ><![CDATA[#[vars.answer]]]></whisperer:text>
+		<logger level="DEBUG" doc:name="Logger" doc:id="95fdf7f8-ccaa-4a77-8e83-a3a0dd9e4dfd" message="The output answer is #[vars.answer]"/>
+		<whisperer:text-to-speech doc:name="answer in voice" doc:id="1114bb60-6309-408d-b82e-fb9cdcd622c2" config-ref="MAC_Whisperer_Config">
+			<whisperer:text><![CDATA[#[vars.answer]]]></whisperer:text>
 			<whisperer:generation-options voice="coral" />
 		</whisperer:text-to-speech>
-		<!-- [STUDIO:"Set Payload"]<set-payload value='#["OK"&#93;' doc:name="Set Payload" doc:id="dd5f510e-bce0-4db5-b909-0e5f65d61bb6" /> [STUDIO] -->
-		<!-- [STUDIO:"Transform Message"]<ee:transform doc:name="Transform Message">
-            <ee:message>
-                <ee:set-payload><![CDATA[%dw 2.0
-output application/json
-&#45;&#45;-
-"OK" as String {encoding: "UTF-8", mediaType: "application/json"}&#93;&#93;></ee:set-payload>
-            </ee:message>
-        </ee:transform> [STUDIO] -->
     </flow>
-    <flow name="get:\voice\name:racer-api-config">
+	<flow name="get:\voice\name:racer-api-config">
         <set-payload value='#[readUrl("classpath://Karanja.mp3", "application/octet-stream") dw::Runtime::wait 50]' doc:name="Set Payload" doc:id="a6578e22-52fd-497c-b3c3-78acdf8da3ed" />
-		<logger level="INFO" message="get:\voice\name:racer-api-config" />
+		<logger level="INFO" message="voice of name completed" />
     </flow>
-    <flow name="post:\bias-detection\articles:application\json:racer-api-config">
+	<flow name="post:\bias-detection\articles:application\json:racer-api-config">
 		<ee:transform doc:name="Transform Message">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
@@ -236,60 +237,5 @@ output application/json
 } as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
             </ee:message>
         </ee:transform>
-    </flow>
-	<flow name="post:\voice\question\formula-one:audio\mp3:racer-api-config">
-		<!-- [STUDIO:"Transform Message"]<ee:transform doc:name="Transform Message" doc:id="3d59d2b9-bf8b-415d-a347-1250cd8828cb" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/json
-&#45;&#45;-
-{
-  biasedArticle: {
-    title: "The Chocolate Controversy: Why Esteban Ocon's Sweet Tooth Could Be His Downfall - ESPN",
-    "type": "negative",
-    reason: "eats chocolate"
-  }
-} as Object {encoding: "UTF-8", mediaType: "application/json"}&#93;&#93;></ee:set-payload>
-			</ee:message>
-		</ee:transform> [STUDIO] -->
-		<whisperer:text-to-speech doc:name="test" doc:id="e5ccdfb1-f5b7-40cd-8fa8-5183b084af3e" config-ref="MAC_Whisperer_Config">
-			<whisperer:generation-options voice="coral" />
-		</whisperer:text-to-speech>
-		<ee:transform doc:name="Transform Message" doc:id="dacca788-59d0-4871-8a3c-88d347a337c4">
-			<ee:message>
-				<ee:set-payload><![CDATA[%dw 2.0
-import * from dw::core::Arrays
-import remove from dw::core::Strings
-output application/java
-var f1Results = readUrl("classpath://results.csv", "application/csv")
-
-fun findDriver(question) = do {
-	var normalizedQuestion = trim(lower(question remove "?"))
-	var forLog = log("finding driver", question)
-	var words = trim(lower(normalizedQuestion)) splitBy " "
-	var position = log("position", words[4])
-	var round = log("round", words[7])
-	var season = log("season", words[9])
-	var chosenRow = f1Results firstWith (row) -> 
-		row.Position == position
-		and row.Round == round
-		and row.Season == season
-	---
-	if (null == chosenRow) "I don't know"
-	else "$(chosenRow.GivenName) $(chosenRow.FamilyName)"
-}
-
-var questionType = vars.question match {
-	case q if lower(q) startsWith "who finished" -> "driver"
-	else -> "unknown"
-}
----
-questionType match {
-	case "driver" -> findDriver(vars.question)
-	else -> "I don't know"
-}]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<whisperer:speech-to-text doc:name="Speech to Text" doc:id="292327de-8062-415c-bbc0-273cf8768d3a" config-ref="MAC_Whisperer_Config" temperature="0.3" />
     </flow>
 </mule>
