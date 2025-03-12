@@ -10,6 +10,12 @@ http://www.mulesoft.org/schema/mule/whisperer http://www.mulesoft.org/schema/mul
 	<whisperer:config name="MAC_Whisperer_Config" doc:name="MAC Whisperer Config" doc:id="46a569ad-06e1-452c-9863-7f8bbdf4fc96" >
 		<whisperer:open-ai-connection apiKey="${openai.apikey}" />
 	</whisperer:config>
+	<http:request-config name="openAIApiRequestConfig" doc:name="HTTP Request configuration" doc:id="907a4c4f-9ab8-4e0d-a908-6c1362c693f5" basePath="/v1" >
+		<http:request-connection protocol="HTTPS" host="api.openai.com" port="443" />
+		<http:default-headers >
+			<http:default-header key="Authorization" value="Bearer ${openai.apikey}" />
+		</http:default-headers>
+	</http:request-config>
 	<flow name="racer-api-main">
         <http:listener config-ref="racer-api-httpListenerConfig" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
@@ -138,9 +144,31 @@ output application/json
 			<whisperer:text><![CDATA[#[payload.question&#93;&#93;&#93;></whisperer:text>
 			<whisperer:generation-options voice="coral" />
 		</whisperer:text-to-speech> [STUDIO] -->
-		<logger level="INFO" doc:name="Logger" doc:id="a97b36d5-77e9-4bce-90c6-fe09815e0a6a" message="starting f1 question"/>
+		<logger level="INFO" doc:name="Logger" doc:id="a97b36d5-77e9-4bce-90c6-fe09815e0a6a" message="starting f1 question #"/>
 		<whisperer:speech-to-text doc:name="f1 Question to text" doc:id="33c1cb52-03b6-4b2f-9891-b087a5f1818d" config-ref="MAC_Whisperer_Config" target="question" finetuningPrompt="Transcribe numbers as digits. Example: 'one' → '1', 'twenty-five' → '25" temperature="0.1" />
-		<logger level="DEBUG" doc:name="Logger" doc:id="e76ce4a4-a5b4-48a7-836e-27f43f42f756" message="The speech transcription is #[vars.question]"/>
+		<!-- [STUDIO:"LLM"]<ee:transform doc:name="LLM" doc:id="777125e6-7e54-4ef6-b913-9f84b7214bea">
+			<ee:message>
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var systemPrompt = readUrl("classpath://prompts/answerQuestion.txt", "text/plain")
+&#45;&#45;-
+{
+	model: "gpt-4o-mini",
+	messages: [
+		{
+			role: "system",
+			content: systemPrompt
+		},
+		{
+			role: "user",
+			content: write(vars.question, "application/json")
+		}
+	&#93;
+}&#93;&#93;></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform> [STUDIO] -->
 		<set-variable value='#[readUrl("classpath://results.csv", "application/csv")]' doc:name="f1results file" doc:id="2619e899-2b26-4721-8f3c-1809bdddd844" variableName="f1Results" />
 		<ee:transform doc:name="Answer Question" doc:id="71fe09fa-c261-45e7-8cc4-415a7cf33c10">
 			<ee:message>
@@ -228,30 +256,73 @@ questionType match {
 ]]></ee:set-variable>
 			</ee:variables>
 		</ee:transform>
-		<logger level="DEBUG" doc:name="Logger" doc:id="95fdf7f8-ccaa-4a77-8e83-a3a0dd9e4dfd" message="The output answer is #[vars.answer]"/>
+		<!-- [STUDIO:"POST /chat/completions"]<http:request method="POST" doc:name="POST /chat/completions" doc:id="2e7a529f-a11f-4fe8-9f64-22d68ebadd99" config-ref="openAIApiRequestConfig" path="/chat/completions" target="answer"/> [STUDIO] -->
 		<whisperer:text-to-speech doc:name="answer in voice" doc:id="1114bb60-6309-408d-b82e-fb9cdcd622c2" config-ref="MAC_Whisperer_Config">
-			<whisperer:text><![CDATA[#[vars.answer]]]></whisperer:text>
-			<whisperer:generation-options voice="coral" speed="0.9"/>
+			<whisperer:text><![CDATA[#[vars.answer.choices[0].message.content]]]></whisperer:text>
+			<whisperer:generation-options voice="coral" speed="0.9" />
 		</whisperer:text-to-speech>
+		<logger level="DEBUG" doc:name="Logger" doc:id="95fdf7f8-ccaa-4a77-8e83-a3a0dd9e4dfd" message="The output answer is #[vars.answer]" />
     </flow>
 	<flow name="get:\voice\name:racer-api-config">
         <set-payload value='#[readUrl("classpath://Karanja.mp3", "application/octet-stream") dw::Runtime::wait 50]' doc:name="Set Payload" doc:id="a6578e22-52fd-497c-b3c3-78acdf8da3ed" />
 		<logger level="INFO" message="voice of name completed" />
     </flow>
 	<flow name="post:\bias-detection\articles:application\json:racer-api-config">
-		<ee:transform doc:name="Transform Message">
+		<!-- [STUDIO:"biasedArticle"]<set-variable value="#[%dw 2.0&#10;output application/json&#10;&#45;&#45;-&#10;{&#10;	title: &quot;The Chocolate Controversy: Why Esteban Ocon's Sweet Tooth Could Be His Downfall - ESPN&quot;,&#10;	&quot;type&quot;: &quot;negative&quot;,&#10;	reason: &quot;eats chocolate&quot;&#10;}&#93;" doc:name="biasedArticle" doc:id="f2a7a412-2196-46a0-a285-b13daa4b95e7" variableName="biasedArticle"/> [STUDIO] -->
+		<ee:transform doc:name="Transform Message" doc:id="629c4029-e0f5-4193-8303-c194354818e8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+var systemPrompt = readUrl("classpath://prompts/detect-bias.txt", "text/plain")
+---
+{
+	model: "gpt-4o-mini",
+	messages: [
+		{
+			role: "system",
+			content: systemPrompt
+		},
+		{
+			role: "user",
+			content: write(payload, "application/json")
+		}
+	]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<!-- [STUDIO:"Transform Message"]<ee:transform doc:name="Transform Message">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
----
+&#45;&#45;-
 {
   biasedArticle: {
     title: "The Chocolate Controversy: Why Esteban Ocon's Sweet Tooth Could Be His Downfall - ESPN",
     "type": "negative",
     reason: "eats chocolate"
   }
-} as Object {encoding: "UTF-8", mediaType: "application/json"}]]></ee:set-payload>
+} as Object {encoding: "UTF-8", mediaType: "application/json"}&#93;&#93;></ee:set-payload>
             </ee:message>
-        </ee:transform>
+        </ee:transform> [STUDIO] -->
+		<http:request method="POST" doc:name="POST /chat/completions" doc:id="f4e99662-5e72-4178-bdaf-eef8a0302b68" config-ref="openAIApiRequestConfig" path="/chat/completions" />
+		<ee:transform doc:name="Transform Message" doc:id="880a59ce-1149-4280-97eb-a7f18716ddea" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import substring from dw::core::Strings
+output application/json
+
+var response = log(payload.choices[0].message.content)
+var jsonStart = response indexOf '{'
+var jsonEnd = response lastIndexOf '}'
+var biasResponse = read(substring(response, jsonStart, jsonEnd + 1), "application/json")
+---
+biasedArticle: {
+	title: biasResponse.title,
+	"type": biasResponse.biasType,
+	reason: biasResponse.bias
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="586838ec-0792-4528-938f-0af5be3ebc63" message="Finished Bias article with #[payload]"/>
     </flow>
 </mule>
